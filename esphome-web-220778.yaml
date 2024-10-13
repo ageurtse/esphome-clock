@@ -1,0 +1,481 @@
+################################################################################
+# Substitution Variables
+################################################################################
+substitutions:
+  device_internal_name: wekker
+  device_wifi_name: esphome-wekker
+  device_friendly_name: WEKKER
+  device_ip_address: 192.168.0.128
+  device_sampling_time: 30s
+
+################################################################################
+# Globals
+################################################################################
+globals: 
+  - id: wifi_connection
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: bgcolor
+    type: Color
+    initial_value: "Color::random_color()"
+
+  - id: my_selection
+    type: int
+    initial_value: "0"
+
+
+external_components:
+  - source: github://dmonkey-hub/esphome
+    components: [ axs15231 ] 
+
+################################################################################
+# Board Configuration
+################################################################################
+esphome:
+  name: ${device_internal_name}
+  friendly_name: ${device_friendly_name}
+  platformio_options:
+    build_flags: "-DBOARD_HAS_PSRAM"
+    board_build.arduino.memory_type: qio_opi
+  # on_boot:
+  #   then:
+  #     - component.update: main_display
+
+psram:
+  mode: octal
+  speed: 120MHz
+
+esp32:
+  board: esp32s3box
+  variant: ESP32S3
+  flash_size: 8MB
+  framework:
+    type: esp-idf
+
+
+################################################################################
+# Enable logging
+################################################################################
+logger:
+  logs:
+    component: ERROR
+
+################################################################################
+# Enable Home Assistant API
+################################################################################
+api:
+  reboot_timeout: 0s
+
+################################################################################
+# OTA
+################################################################################
+ota:
+- platform: esphome
+
+################################################################################
+# WiFi
+################################################################################
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  output_power: 10
+  use_address: ${device_ip_address}
+  on_connect:
+    - lvgl.label.update:
+        id: esphome_ip_label
+        text:
+          format: "IP Address: %s"
+          args: [ 'id(ip_address).state.c_str()' ] 
+        
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_wifi_name}
+    password: !secret esphome_pwd
+
+
+###############################################################################
+# Web Server
+################################################################################
+web_server:
+  port: 80
+  version: 2
+  include_internal: true
+
+################################################################################
+# Output
+################################################################################
+output:
+  - platform: ledc
+    pin:
+      number: GPIO01
+    id: lcdbacklight
+
+
+################################################################################
+# Switch
+################################################################################
+switch:
+  - platform: restart
+    name: "Restart"
+    id: device_restart
+  
+  - platform: safe_mode
+    name: Use Safe Mode
+    id: device_safe_mode
+
+################################################################################
+# Light
+################################################################################
+light:
+  - platform: monochromatic
+    output: lcdbacklight
+    name: "Display Backlight"
+    id: back_light
+    restore_mode: ALWAYS_ON
+
+################################################################################
+# Sensors
+################################################################################
+sensor:
+  - platform: homeassistant
+    id: light_brightness
+    entity_id: light.your_dimmer
+    attribute: brightness
+    # on_value:
+      # - lvgl.slider.update:
+      #     id: dimmer_slider
+      #     value: !lambda return x;
+  # WiFi
+  - platform: wifi_signal
+    name: "WiFi Signal Sensor"
+    id: ${device_internal_name}_wifi_signal_sensor
+    update_interval: ${device_sampling_time}
+
+  # Uptime
+  - platform: uptime
+    name: "Uptime Sensor"
+    id: ${device_internal_name}_uptime_sensor
+    update_interval: ${device_sampling_time}
+    internal: true
+    on_raw_value:
+      then:
+        - text_sensor.template.publish:
+            id: ${device_internal_name}_uptime_human
+            state: !lambda |-
+              int seconds = round(id(${device_internal_name}_uptime_sensor).raw_state);
+              int days = seconds / (24 * 3600);
+              seconds = seconds % (24 * 3600);
+              int hours = seconds / 3600;
+              seconds = seconds % 3600;
+              int minutes = seconds /  60;
+              seconds = seconds % 60;
+              return (
+                (days ? to_string(days) + "d " : "") +
+                (hours ? to_string(hours) + "h " : "") +
+                (minutes ? to_string(minutes) + "m " : "") +
+                (to_string(seconds) + "s")
+              ).c_str();
+
+################################################################################
+# Interval
+################################################################################
+interval:
+  - interval: 10s
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - lambda: |-
+                id(wifi_connection) = true;
+
+          else:
+            - lambda: |-
+                id(wifi_connection) = false;
+
+time:
+  - platform: homeassistant
+    id: esptime
+    on_time:
+      - minutes: "*"
+        then:
+          - lvgl.label.update:
+              id: clock_time
+              text:
+                format: "%s"
+                args: [ 'id(current_time).state.c_str()' ] 
+
+################################################################################
+# Script
+################################################################################
+# script:
+#   - id: clock_update
+#     then:
+#       # - lvgl.indicator.update:
+#       #     id: second_hand
+#       #     value: !lambda |-
+#       #       return id(esptime).now().second;
+#       # - lvgl.indicator.update:
+#       #     id: minute_hand
+#       #     value: !lambda |-
+#       #       return id(esptime).now().minute;
+#       # - lvgl.indicator.update:
+#       #     id: hour_hand
+#       #     value: !lambda |-
+#       #       auto now = id(esptime).now();
+#       #       return std::fmod(now.hour, 12) * 60 + now.minute;
+#       - component.update: main_display
+
+################################################################################
+# Text Sensors
+################################################################################
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: ip_address
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      id: ssid
+      name: "Connected SSID"
+      entity_category: diagnostic
+    mac_address:
+      id: mac_address
+      name: "Mac Address"
+      entity_category: diagnostic
+
+
+  - platform: version
+    id: esphome_version
+    name: "ESPHome Version"
+    hide_timestamp: true
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: esphome_version_label
+            text: !lambda |-
+              return ("ESPHome Version: " + id(esphome_version).state).c_str();
+
+  - platform: template
+    name: "Current Time"
+    id: current_time
+    update_interval: 60s
+    lambda: return  id(esptime).now().strftime("%H:%M");
+
+  #-------------------------------------------------------------------------------
+  # Custom Text sensors
+  #-------------------------------------------------------------------------------
+  - platform: template
+    name: Uptime Human Readable
+    id: ${device_internal_name}_uptime_human
+    icon: mdi:clock-start
+
+################################################################################
+# SPI and I2C
+################################################################################
+spi:
+  - id: display_qspi
+    type: quad
+    interface: hardware
+    clk_pin: 47
+    data_pins:
+      - 21
+      - 48
+      - 40
+      - 39
+
+i2c:
+  sda: 4
+  scl: 8
+  id: touchscreen_bus
+  frequency: 800khz
+
+################################################################################
+# Display and Touchscreen
+################################################################################
+display:
+  - platform: axs15231
+    id: main_display
+    spi_id: display_qspi
+    dimensions: # this remains the same even after rotation
+      width: 320
+      height: 480
+    cs_pin: 45
+    reset_pin: 16
+    rotation: 270  ### 90 & 270 need swap_xy to be true in the touchscreen section
+    transform:
+      mirror_x: false
+      mirror_y: false
+      swap_xy: false
+    auto_clear_enabled: false
+    update_interval: 50ms
+    # show_test_card: true
+
+touchscreen:
+  - platform: axs15231
+    id: main_touch
+    i2c_id: touchscreen_bus
+    update_interval: 50ms
+    display: main_display
+    transform:
+      mirror_x: false
+      mirror_y: false
+      swap_xy: true # true for rotation 90 or 270 
+
+################################################################################
+# Image, Fonts and color
+################################################################################
+image:
+  - file: https://esphome.io/_static/favicon-512x512.png
+    id: boot_logo
+    resize: 200x200
+    type: RGB565
+    use_transparency: true
+    
+color:
+  - id: my_red
+    red: 100%
+    green: 0%
+    blue: 0%
+  - id: my_pink
+    red: 100%
+    green: 10%
+    blue: 40%
+  - id: my_yellow
+    red: 100%
+    green: 100%
+    blue: 0%
+  - id: my_green
+    red: 0%
+    green: 100%
+    blue: 0%
+  - id: my_blue
+    red: 0%
+    green: 0%
+    blue: 100%
+  - id: my_gray
+    red: 50%
+    green: 50%
+    blue: 50%
+  - id: my_white
+    red: 100%
+    green: 100%
+    blue: 100%
+  - id: my_black
+    red: 0%
+    green: 0%
+    blue: 0%
+
+font:
+  - file: "fonts/digital-dismay.regular.otf"
+    id: font_std
+    size: 215
+    glyphs: ":0123456789"
+  - file: "arial.ttf"
+    id: arial_98
+    size: 98
+  - file: "arial.ttf"
+    id: arial_96
+    size: 96
+  - file: "arial.ttf"
+    id: arial_134
+    size: 134
+  - file: "arial.ttf"
+    id: arial_128
+    size: 128
+  - file: "arial.ttf"
+    id: arial_48
+    size: 48
+  - file: "arial.ttf"
+    id: arial_36
+    size: 36
+  - file: "arial.ttf"
+    id: arial_24
+    size: 24
+  - file: "arial.ttf"
+    id: arial_12
+    size: 12
+  - file: "gfonts://Roboto"
+    id: roboto10
+    size: 10
+    bpp: 4
+
+################################################################################
+# LVGL
+################################################################################
+lvgl:
+  log_level: none #INFO
+  color_depth: 16
+  buffer_size: 25%
+  bg_color: my_black
+  text_font: arial_12
+  width: 320
+  height: 480
+  align: center
+  id: screen
+  style_definitions:
+    - id: date_style
+      #text_font: UNSCII_8
+      align: center
+      text_color: 0x000000
+      bg_opa: cover
+      radius: 4
+      pad_all: 2
+
+  widgets:
+    - label:
+        id: clock_time
+        text_font: font_std
+        text_color: my_red
+        align: CENTER
+        text: "23:59"
+      
+    - obj:
+        id: boot_screen
+        x: 0
+        y: 0
+        width: 100%
+        height: 100%
+        bg_color: 0xffffff
+        bg_opa: COVER
+        radius: 0
+        pad_all: 0
+        border_width: 0
+        widgets:
+          - image:
+              src: boot_logo
+          - spinner:
+              align: CENTER
+              y: 95
+              height: 50
+              width: 50
+              spin_time: 1s
+              arc_length: 60deg
+              arc_width: 8
+              indicator:
+                arc_color: 0x18bcf2
+                arc_width: 8
+          - label:
+              x: 200
+              y: 50  
+              text:
+                format: "MAC Address: %s"
+                args: [ 'id(mac_address).state.c_str()' ]                
+          - label:
+              id: esphome_ip_label
+              x: 200
+              y: 65  
+              text:
+                format: "IP Address: %s"
+                args: [ 'id(ip_address).state.c_str()' ]                
+          - label:
+              x: 200
+              y: 110  
+              id: esphome_version_label           
+              text:
+                format: "ESPHome Version: %s"
+                args: [ 'id(esphome_version).state.c_str()' ]
+        on_press:
+          - lvgl.widget.hide: boot_screen
