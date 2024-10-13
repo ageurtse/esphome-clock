@@ -431,7 +431,10 @@ lvgl:
         text_color: my_red
         align: CENTER
         text: "23:59"
-      
+       
+        on_press:
+          - lvgl.widget.show: boot_screen   
+          
     - obj:
         id: boot_screen
         x: 0
