@@ -24,12 +24,6 @@ globals:
   - id: my_selection
     type: int
     initial_value: "0"
-
-
-external_components:
-  - source: github://dmonkey-hub/esphome
-    components: [ axs15231 ] 
-
 ################################################################################
 # Board Configuration
 ################################################################################
@@ -39,9 +33,10 @@ esphome:
   platformio_options:
     build_flags: "-DBOARD_HAS_PSRAM"
     board_build.arduino.memory_type: qio_opi
-  # on_boot:
-  #   then:
-  #     - component.update: main_display
+  on_boot:
+      priority: -100
+      then:
+      - lvgl.widget.hide: boot_screen
 
 psram:
   mode: octal
@@ -54,13 +49,17 @@ esp32:
   framework:
     type: esp-idf
 
+################################################################################
+# Bluethooth tracker
+################################################################################
+bluetooth_proxy:
 
 ################################################################################
 # Enable logging
 ################################################################################
 logger:
   logs:
-    component: ERROR
+    component: NONE
 
 ################################################################################
 # Enable Home Assistant API
@@ -94,6 +93,7 @@ wifi:
     ssid: ${device_wifi_name}
     password: !secret esphome_pwd
 
+captive_portal:
 
 ###############################################################################
 # Web Server
@@ -143,10 +143,7 @@ sensor:
     id: light_brightness
     entity_id: light.your_dimmer
     attribute: brightness
-    # on_value:
-      # - lvgl.slider.update:
-      #     id: dimmer_slider
-      #     value: !lambda return x;
+
   # WiFi
   - platform: wifi_signal
     name: "WiFi Signal Sensor"
@@ -208,27 +205,6 @@ time:
                 args: [ 'id(current_time).state.c_str()' ] 
 
 ################################################################################
-# Script
-################################################################################
-# script:
-#   - id: clock_update
-#     then:
-#       # - lvgl.indicator.update:
-#       #     id: second_hand
-#       #     value: !lambda |-
-#       #       return id(esptime).now().second;
-#       # - lvgl.indicator.update:
-#       #     id: minute_hand
-#       #     value: !lambda |-
-#       #       return id(esptime).now().minute;
-#       # - lvgl.indicator.update:
-#       #     id: hour_hand
-#       #     value: !lambda |-
-#       #       auto now = id(esptime).now();
-#       #       return std::fmod(now.hour, 12) * 60 + now.minute;
-#       - component.update: main_display
-
-################################################################################
 # Text Sensors
 ################################################################################
 text_sensor:
@@ -276,15 +252,10 @@ text_sensor:
 # SPI and I2C
 ################################################################################
 spi:
-  - id: display_qspi
-    type: quad
-    interface: hardware
-    clk_pin: 47
-    data_pins:
-      - 21
-      - 48
-      - 40
-      - 39
+  id: display_qspi
+  type: quad
+  clk_pin: 47
+  data_pins: [21,48,40,39]
 
 i2c:
   sda: 4
@@ -296,33 +267,30 @@ i2c:
 # Display and Touchscreen
 ################################################################################
 display:
-  - platform: axs15231
-    id: main_display
-    spi_id: display_qspi
-    dimensions: # this remains the same even after rotation
-      width: 320
+  - platform: qspi_dbi
+    model: CUSTOM
+    data_rate: 40MHz
+    dimensions:
       height: 480
-    cs_pin: 45
-    reset_pin: 16
-    rotation: 270  ### 90 & 270 need swap_xy to be true in the touchscreen section
+      width: 320
     transform:
       mirror_x: false
       mirror_y: false
-      swap_xy: false
+    cs_pin:
+      number: 45
+      ignore_strapping_warning: true
     auto_clear_enabled: false
-    update_interval: 50ms
-    # show_test_card: true
+    update_interval: never
+    draw_from_origin: true
+    rotation: 270
+    init_sequence:
 
 touchscreen:
-  - platform: axs15231
-    id: main_touch
-    i2c_id: touchscreen_bus
-    update_interval: 50ms
-    display: main_display
-    transform:
-      mirror_x: false
-      mirror_y: false
-      swap_xy: true # true for rotation 90 or 270 
+  platform: axs15231
+  transform:
+    swap_xy: true
+    mirror_x: false
+    mirror_y: true
 
 ################################################################################
 # Image, Fonts and color
@@ -406,9 +374,6 @@ font:
 # LVGL
 ################################################################################
 lvgl:
-  log_level: none #INFO
-  color_depth: 16
-  buffer_size: 25%
   bg_color: my_black
   text_font: arial_12
   width: 320
@@ -417,7 +382,6 @@ lvgl:
   id: screen
   style_definitions:
     - id: date_style
-      #text_font: UNSCII_8
       align: center
       text_color: 0x000000
       bg_opa: cover
@@ -430,11 +394,11 @@ lvgl:
         text_font: font_std
         text_color: my_red
         align: CENTER
-        text: "23:59"
-       
+        text: "99:99"
+        
         on_press:
-          - lvgl.widget.show: boot_screen   
-          
+          - lvgl.widget.show: boot_screen
+
     - obj:
         id: boot_screen
         x: 0
