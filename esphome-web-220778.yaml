@@ -1,3 +1,9 @@
+####### USE ESPhome-dev version #################
+
+
+
+
+
 ################################################################################
 # Substitution Variables
 ################################################################################
@@ -6,7 +12,10 @@ substitutions:
   device_wifi_name: esphome-wekker
   device_friendly_name: WEKKER
   device_ip_address: 192.168.0.128
-  device_sampling_time: 30s
+  device_sampling_time: 300s
+
+
+
 
 ################################################################################
 # Globals
@@ -57,6 +66,10 @@ esp32:
 ################################################################################
 bluetooth_proxy:
 
+esp32_ble_tracker:
+  scan_parameters:
+    active: True
+  
 ################################################################################
 # Enable logging
 ################################################################################
@@ -236,7 +249,87 @@ text_sensor:
             id: esphome_version_label
             text: !lambda |-
               return ("ESPHome Version: " + id(esphome_version).state).c_str();
+  
+  - platform: homeassistant
+    id: arnold
+    entity_id: person.arnold_geurtse
+    internal: true 
+    on_value:
+      - if:
+          condition:
+            # Checks if "my_text_sensor" has state "Hello World"
+            text_sensor.state:
+              id: arnold
+              state: 'home'
+          then:
+            - lvgl.label.update:
+                id: lbl_arnold
+                text_color: red
+          else:   
+            - lvgl.label.update:
+                id: lbl_arnold
+                text_color: my_darkred
 
+  - platform: homeassistant
+    id: ellen
+    entity_id: person.ellen_harbers
+    internal: true 
+    on_value:
+      - if:
+          condition:
+            # Checks if "my_text_sensor" has state "Hello World"
+            text_sensor.state:
+              id: ellen
+              state: 'home'
+          then:
+            - lvgl.label.update:
+                id: lbl_ellen
+                text_color: red
+          else:   
+            - lvgl.label.update:
+                id: lbl_ellen
+                text_color: my_darkred
+
+  - platform: homeassistant
+    id: steijn
+    entity_id: person.steijn_geurtse
+    internal: true 
+    on_value:
+      - if:
+          condition:
+            # Checks if "my_text_sensor" has state "Hello World"
+            text_sensor.state:
+              id: steijn
+              state: 'home'
+          then:
+            - lvgl.label.update:
+                id: lbl_steijn
+                text_color: red
+          else:   
+            - lvgl.label.update:
+                id: lbl_steijn
+                text_color: my_darkred
+
+  - platform: homeassistant
+    id: nora
+    entity_id: person.nora_geurtse
+    internal: true 
+    on_value:
+      - if:
+          condition:
+            # Checks if "my_text_sensor" has state "Hello World"
+            text_sensor.state:
+              id: nora
+              state: 'home'
+          then:
+            - lvgl.label.update:
+                id: lbl_nora
+                text_color: red
+          else:   
+            - lvgl.label.update:
+                id: lbl_nora
+                text_color: my_darkred
+  
   - platform: template
     name: "Current Time"
     id: current_time
@@ -310,10 +403,10 @@ color:
     red: 100%
     green: 0%
     blue: 0%
-  - id: my_pink
-    red: 100%
-    green: 10%
-    blue: 40%
+  - id: my_darkred
+    red: 50%
+    green: 0%
+    blue: 0%
   - id: my_yellow
     red: 100%
     green: 100%
@@ -345,24 +438,6 @@ font:
     size: 215
     glyphs: ":0123456789"
   - file: "arial.ttf"
-    id: arial_98
-    size: 98
-  - file: "arial.ttf"
-    id: arial_96
-    size: 96
-  - file: "arial.ttf"
-    id: arial_134
-    size: 134
-  - file: "arial.ttf"
-    id: arial_128
-    size: 128
-  - file: "arial.ttf"
-    id: arial_48
-    size: 48
-  - file: "arial.ttf"
-    id: arial_36
-    size: 36
-  - file: "arial.ttf"
     id: arial_24
     size: 24
   - file: "arial.ttf"
@@ -372,6 +447,19 @@ font:
     id: roboto10
     size: 10
     bpp: 4
+  # http://materialdesignicons.com/cdn/7.4.47/
+  - file: 'https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf'
+    id: face20
+    size: 30
+    bpp: 4
+    glyphs: [
+      "\U000F0643",  # mdi-face-men
+      "\U000F1077",  # mdi-face-woman
+      "\U000F0B96",  # mdi-face-men-outline
+      "\U000F1078",  # mdi-face-women-outline
+      "\U000F0335",
+    ]      
+
 
 ################################################################################
 # LVGL
@@ -401,6 +489,37 @@ lvgl:
         
         on_press:
           - lvgl.widget.show: boot_screen
+
+    - label:
+        id: lbl_arnold
+        text_font: face20
+        text_color: my_darkred
+        x: 10
+        y: 10
+        text: "\U000F0643"
+    - label:
+        id: lbl_ellen
+        text_font: face20
+        text_color: my_darkred
+        x: 40
+        y: 10
+        text: "\U000F1077"
+
+    - label:
+        id: lbl_steijn
+        text_font: face20
+        text_color: my_darkred
+        x: 70
+        y: 10
+        text: "\U000F0B96"
+
+    - label:
+        id: lbl_nora
+        text_font: face20
+        text_color: my_darkred
+        x: 100
+        y: 10
+        text: "\U000F1078"
 
     - obj:
         id: boot_screen
