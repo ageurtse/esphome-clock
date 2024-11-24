@@ -4,3 +4,5 @@ many thanks for the one who write the display driver.
 The font file, should be placed in the esphome/fonts
 
 the code works with esphome dev branche > 11.0
+
+24-11-2024, the code run's fine with the Esphome 11.0 and higher, so no more nede for dev version. 
