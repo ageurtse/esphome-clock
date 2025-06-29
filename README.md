@@ -7,3 +7,5 @@ the code works with esphome dev branche > 11.0
 
 24-11-2024, the code run's fine with the Esphome 11.0 and higher, so no more nede for dev version. 
 I also added a bit of code so i can display who is home and who's away. 
+
+Link to the topic where the screen is: [https://community.home-assistant.io/t/esp32-s3-3-5-inch-capacitive-touch-ips-module-320-480](https://community.home-assistant.io/t/esp32-s3-3-5-inch-capacitive-touch-ips-module-320-480/768591)
